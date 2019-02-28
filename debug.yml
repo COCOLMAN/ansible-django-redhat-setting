@@ -1,0 +1,8 @@
+---
+- name: 플레이북 튜토리얼
+  hosts: ec2-instance1
+  become: true
+  tasks:
+    - name: print HOME
+      debug:
+        var: ansible_env

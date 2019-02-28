@@ -1,0 +1,47 @@
+---
+- name: 플레이북 튜토리얼
+  hosts: ec2-instance1
+  become: true
+  tasks:
+    - name: Add yum repo
+      yum_repository:
+        name: nginx repo
+        description: NGINX repo
+        baseurl: http://nginx.org/packages/mainline/centos/7/$basearch/
+        gpgcheck: no
+
+    - name: Install git with yum
+      yum:
+        name: git
+
+    - name: Install dependencies packages 
+      yum:
+        state:
+          present
+        name:
+          - gcc
+          - zlib-devel
+          - bzip2
+          - bzip2-devel
+          - readline-devel
+          - openssl-devel
+
+    - name: download python 3.7.2
+      get_url:
+        url: https://www.python.org/ftp/python/3.7.2/Python-3.7.2.tgz
+        dest: /usr/src/
+
+    - name: unarchive python 3.7.2
+      unarchive:
+        src: /usr/src/Python-3.7.2.tgz
+        remote_src: yes
+        dest: /usr/src/
+
+    - name: exec config
+      shell:
+        "{{ ansible_env.SHELL }} /usr/src/Python-3.7.2/configure --enable-optimizations"
+
+    - name: make python-makefile
+      make:
+        chdir: /usr/src/Python-3.7.2/
+        target: install
