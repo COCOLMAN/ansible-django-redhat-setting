@@ -3,11 +3,22 @@
   hosts: ec2-instance1
   become: true
   tasks:
-    - name: Add yum repo
+    - name: Update yum
+      shell:
+        yum update
+
+    - name: Add yum nginx repo
       yum_repository:
         name: nginx repo
         description: NGINX repo
         baseurl: http://nginx.org/packages/mainline/centos/7/$basearch/
+        gpgcheck: no
+
+    - name: Add yum ius repo
+      yum_repository:
+        name: ius repo
+        description: IUS repo
+        baseurl: https://centos7.iuscommunity.org/ius-release.rpm
         gpgcheck: no
 
     - name: Install git with yum
@@ -26,6 +37,14 @@
           - readline-devel
           - openssl-devel
 
+    - name: install python3
+      yum:
+        state:
+          present
+        name:
+          - python36u
+          - python36u-pip
+
     - name: download python 3.7.2
       get_url:
         url: https://www.python.org/ftp/python/3.7.2/Python-3.7.2.tgz
@@ -38,9 +57,9 @@
         dest: /usr/src/
 
     - name: exec config
-      shell:
-        "{{ ansible_env.SHELL }} /usr/src/Python-3.7.2/configure --enable-optimizations"
-
+      command:
+        '/usr/src/Python-3.7.2/configure'
+      
     - name: make python-makefile
       make:
         chdir: /usr/src/Python-3.7.2/
