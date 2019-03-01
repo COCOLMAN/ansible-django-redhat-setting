@@ -3,9 +3,9 @@
   hosts: ec2-instance1
   become: true
   tasks:
-    - name: Update yum
-      shell:
-        yum update
+#    - name: Update yum
+#      shell:
+#        yum update
 
     - name: Add yum nginx repo
       yum_repository:
@@ -37,13 +37,13 @@
           - readline-devel
           - openssl-devel
 
-    - name: install python3
-      yum:
-        state:
-          present
-        name:
-          - python36u
-          - python36u-pip
+#    - name: install python3
+#      yum:
+#        state:
+#          present
+#        name:
+#          - python36u
+#          - python36u-pip
 
     - name: download python 3.7.2
       get_url:
@@ -57,7 +57,7 @@
         dest: /usr/src/
 
     - name: exec config
-      command:
+      raw:
         '/usr/src/Python-3.7.2/configure'
       
     - name: make python-makefile
