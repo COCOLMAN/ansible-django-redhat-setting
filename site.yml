@@ -3,10 +3,6 @@
   hosts: ec2-instance1
   become: true
   tasks:
-#    - name: Update yum
-#      shell:
-#        yum update
-
     - name: Add yum nginx repo
       yum_repository:
         name: nginx repo
@@ -36,31 +32,54 @@
           - bzip2-devel
           - readline-devel
           - openssl-devel
+          - sqlite
+          - sqlite-devel
+          - xz
+          - xz-devel
+          - libffi-devel
 
-#    - name: install python3
-#      yum:
-#        state:
-#          present
-#        name:
-#          - python36u
-#          - python36u-pip
+    - name: clone pyenv
+      git:
+        repo: 'https://github.com/pyenv/pyenv.git'
+        dest: /home/{{ ansible_env.SUDO_USER }}/.pyenv
 
-    - name: download python 3.7.2
-      get_url:
-        url: https://www.python.org/ftp/python/3.7.2/Python-3.7.2.tgz
-        dest: /usr/src/
+    - name: block in file
+      blockinfile:
+        path: /home/{{ ansible_env.SUDO_USER }}/.bashrc
+        block: |
+          export PYENV_ROOT="$HOME/.pyenv"
+          export PATH="$PYENV_ROOT/bin:$PATH"
+          if command -v pyenv 1>/dev/null 2>&1; then
+            eval "$(pyenv init -)"
+          fi
+          eval "$(pyenv virtualenv-init -)"
+          
+    - name: clone virtualenv
+      git:
+        repo: 'https://github.com/pyenv/pyenv-virtualenv.git'
+        dest: /home/{{ ansible_env.SUDO_USER }}/.pyenv/plugins/pyenv-virtualenv
 
-    - name: unarchive python 3.7.2
-      unarchive:
-        src: /usr/src/Python-3.7.2.tgz
-        remote_src: yes
-        dest: /usr/src/
+    - name: source
+      shell: 'source /home/{{ ansible_env.SUDO_USER }}/.bashrc'  
 
-    - name: exec config
-      raw:
-        '/usr/src/Python-3.7.2/configure'
-      
-    - name: make python-makefile
-      make:
-        chdir: /usr/src/Python-3.7.2/
-        target: install
+    - name: create pyenv directory
+      become: true
+      become_method: sudo
+      become_user: "{{ ansible_env.SUDO_USER }}"
+      file:
+        path: /home/ec2-user/.pyenv/versions
+        state: directory
+
+    - name: .pyenv permissions
+      file:
+        path: /home/ec2-user/.pyenv
+        recurse: yes
+        owner: ec2-user
+        group: ec2-user
+        state: directory
+
+    - name: pyenv install
+      become: yes
+      become_user: ec2-user
+      shell: . /home/ec2-user/.bashrc && pyenv install 3.7.2
+
