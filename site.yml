@@ -140,3 +140,53 @@
       file:
         path: /etc/uwsgi/sites
         state: directory
+
+    - name: make uwsgi ini file
+      file:
+        path: /etc/uwsgi/sites/mysite.ini
+        state: touch
+
+    - name: uwsgi setting file
+      blockinfile:
+        path: /etc/uwsgi/sites/mysite.ini
+        block: |
+          [uwsgi]
+          project = mysite
+          username = ec2-user
+          base = /home/%(username)
+
+          chdir = %(base)/%(project)
+          home = %(base)/.pyenv/versions/env
+          module = %(project).wsgi:application
+
+          master = true
+          processes = 5
+
+          uid = %(username)
+          socket = /run/uwsgi/%(project).sock
+          chown-socket = %(username):nginx
+          chmod-socket = 660
+          vacuum = true
+
+    - name: make uwsgi ini file
+      file:
+        path: /etc/systemd/system/uwsgi.service
+        state: touch
+
+    - name: uwsgi setting file
+      blockinfile:
+        path: /etc/systemd/system/uwsgi.service
+        block: |
+          [Unit]
+          Description=uWSGI service
+          
+          [Service]
+          ExecStartPre=/usr/bin/bash -c 'mkdir -p /run/uwsgi; chown ec2-user:nginx /run/uwsgi'
+          ExecStart=/usr/bin/bash -c '/home/ec2-user/.pyenv/shims/uwsgi --ini /etc/uwsgi/sites/mysite.ini'
+          Restart=always
+          KillSignal=SIGQUIT
+          Type=notify
+          NotifyAccess=all
+
+          [Install]
+          WantedBy=multi-user.target
