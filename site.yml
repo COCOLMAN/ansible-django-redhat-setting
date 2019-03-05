@@ -39,6 +39,8 @@
           - libffi-devel
 
     - name: clone pyenv
+      become: true
+      become_user: ec2-user
       git:
         repo: 'https://github.com/pyenv/pyenv.git'
         dest: /home/{{ ansible_env.SUDO_USER }}/.pyenv
@@ -53,8 +55,10 @@
             eval "$(pyenv init -)"
           fi
           eval "$(pyenv virtualenv-init -)"
-          
+
     - name: clone virtualenv
+      become: true
+      become_user: ec2-user
       git:
         repo: 'https://github.com/pyenv/pyenv-virtualenv.git'
         dest: /home/{{ ansible_env.SUDO_USER }}/.pyenv/plugins/pyenv-virtualenv
@@ -62,24 +66,77 @@
     - name: source
       shell: 'source /home/{{ ansible_env.SUDO_USER }}/.bashrc'  
 
-    - name: create pyenv directory
-      become: true
-      become_method: sudo
-      become_user: "{{ ansible_env.SUDO_USER }}"
-      file:
-        path: /home/ec2-user/.pyenv/versions
-        state: directory
+#    - name: .pyenv permissions
+#      file:
+#        path: /home/ec2-user/.pyenv
+#        recurse: yes
+#        owner: ec2-user
+#        group: ec2-user
+#        state: directory
 
-    - name: .pyenv permissions
-      file:
-        path: /home/ec2-user/.pyenv
-        recurse: yes
-        owner: ec2-user
-        group: ec2-user
-        state: directory
+    - name: check python version
+      become: true
+      become_user: ec2-user
+      shell: '. /home/ec2-user/.bashrc && /home/ec2-user/.pyenv/bin/pyenv versions'              
+      register: check
+
+    - name: debug
+      debug:
+        var: check.stdout_lines
 
     - name: pyenv install
       become: yes
       become_user: ec2-user
       shell: . /home/ec2-user/.bashrc && pyenv install 3.7.2
+      when: '"  3.7.2" not in check.stdout_lines'
 
+    - name: check virtualenv
+      become: true
+      become_user: ec2-user
+      shell: '. /home/ec2-user/.bashrc && /home/ec2-user/.pyenv/bin/pyenv virtualenv env'              
+      register: check
+      ignore_errors: true
+
+    - name: debug
+      debug:
+        var: check.stderr
+
+    - name: virtualenv setting
+      become: yes
+      become_user: ec2-user
+      shell: pyenv virtualenv 3.7.2 env
+      when: '"already" not in check.stderr'
+      # shell: . /home/ec2-user/.bashrc && pyenv virtualenv 3.7.2 env
+
+    - name: Install django
+      shell: /home/ec2-user/.pyenv/versions/env/bin/pip install django
+
+    - name: Start Project Django
+      become: yes
+      become_user: ec2-user
+      ignore_errors: true
+      shell: /home/ec2-user/.pyenv/versions/env/bin/django-admin startproject mysite
+
+    - name: modify settings.py | STATIC_ROOT
+      blockinfile:
+        path: /home/ec2-user/mysite/mysite/settings.py
+        block:
+          STATIC_ROOT = os.path.join(BASE_DIR, 'static/')
+
+    - name: modify settings.py | ALLOWED_HOST
+      lineinfile:
+        path: /home/ec2-user/mysite/mysite/settings.py
+        regexp: 'ALLOWED_HOSTS'
+        line: 'ALLOWED_HOSTS = ["*"]'
+
+    - name: collect static
+      become_user: ec2-user
+      shell: /home/ec2-user/.pyenv/versions/env/bin/python /home/ec2-user/mysite/manage.py collectstatic --noinput
+          
+    - name: Install uwsgi
+      shell: /home/ec2-user/.pyenv/versions/3.7.2/bin/pip install uwsgi
+
+    - name: mkdir uwsgi directory
+      file:
+        path: /etc/uwsgi/sites
+        state: directory
